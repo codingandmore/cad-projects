@@ -4,6 +4,8 @@ from ocp_vscode import show_clear,show, show_all
 def construct():
     length = 150
     dm_absaug = 35
+    screw_hole_diameter = 4
+
     with BuildPart() as part:
         with BuildSketch(Plane.YZ):
             t = Triangle(c=50, a=50, B=90, align=Align.MIN)
@@ -17,11 +19,23 @@ def construct():
         
         extrude(amount=-f.distance(edge_x0), mode=Mode.SUBTRACT)
         
-        with BuildSketch(Plane.XY.offset(10)) as x:
+        with BuildSketch(Plane.XY.offset(10)):
             with Locations((30, 25, 0)):
-                r = Rectangle(20, 30)
+                Rectangle(20, 30)
         
-        extrude(amount=t.a, mode=Mode.SUBTRACT)            
+        extrude(amount=t.a - 10, mode=Mode.SUBTRACT)  
+        # hole_face =np.faces().sort_by(Axis.Z)[-1]          
+        # with Locations(hole_face):      
+        #     Hole(4)
+        
+        hole_face = part.faces().filter_by(Plane.XY).sort_by(Axis.Z)[-1]
+
+        with Locations(hole_face):      
+            Hole(screw_hole_diameter)
+
+        hole_face = part.faces().filter_by(Plane.XZ).sort_by(Axis.Y)[-1]
+        with Locations(hole_face):      
+            Hole(screw_hole_diameter)
 
     show_all()
 
