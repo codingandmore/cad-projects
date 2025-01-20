@@ -5,11 +5,12 @@ def construct():
     length = 150
     dm_absaug = 35
     screw_hole_diameter = 4
+    width = 50
+    height = 50 
 
     with BuildPart() as part:
         with BuildSketch(Plane.YZ):
-            t = Triangle(c=50, a=50, B=90, align=Align.MIN)
-            hyp = t.edge_b
+            t = Triangle(c=width, a=height, B=90, align=Align.MIN)
             
         extrude(amount=length / 2)
 
@@ -41,6 +42,26 @@ def construct():
 
         c = part.edges().filter_by(GeomType.CIRCLE).sort_by(Axis.Y)[-1]
         fillet(c, radius=4)
+
+        # make fillet on cut-out
+        pl = Plane(f)
+        e = (
+            part.edges().filter_by(pl)
+            .filter_by(GeomType.LINE)
+            .filter_by_position(Axis.Z,  10, height-10)
+        )    
+        fillet(e, radius=2)
+        # make fillet on outer diagonal edge
+        e = (
+            part.edges()
+            .filter_by_position(Axis.X,  length/2, length/2)
+            .filter_by(Axis.Y, reverse=True)
+            .filter_by(Axis.Z, reverse=True)
+        )    
+        fillet(e, radius=2)
+        for f in e:
+            print(f)
+        # fillet(e, radius=2)
 
         # mirror the part to get full length
         mirror(about = Plane.YZ)
