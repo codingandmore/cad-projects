@@ -1,3 +1,4 @@
+from typing import Iterable
 from build123d import *
 from ocp_vscode import show_clear,show, show_all
 import uuid
@@ -41,9 +42,6 @@ def construct() -> Part:
         with Locations(hole_face):      
             CounterSinkHole(screw_hole_diameter, screw_hole_diameter * 2) 
 
-        c = part.edges().filter_by(GeomType.CIRCLE).sort_by(Axis.Y)[-1]
-        fillet(c, radius=4)
-
         # make fillet on cut-out
         pl = Plane(f)
         e = (
@@ -52,6 +50,7 @@ def construct() -> Part:
             .filter_by_position(Axis.Z,  10, height-10)
         )    
         fillet(e, radius=2)
+
         # make fillet on outer diagonal edge
         e = (
             part.edges()
@@ -63,12 +62,23 @@ def construct() -> Part:
 
         # mirror the part to get full length
         mirror(about = Plane.YZ)
+
+        c = part.edges().filter_by(GeomType.CIRCLE).sort_by(Axis.Y)[-1]
+        fillet(c, radius=4)
+
     show_all()
     return part.part
 
 def export (part: Part):
     exporter = Mesher()
+    
+    for shape in part:
+        shape.color = Color("green")
+    
+ 
     exporter.add_shape(part, part_number="absaugadapter", uuid_value = uuid.uuid1())
+    for input_shape in part if isinstance(shape, Iterable) else [shape]:
+        print(f"{input_shape.color=}")
     exporter.add_meta_data(
         name_space="custom",
         name="Absaugadaptera",
