@@ -1,7 +1,8 @@
 from build123d import *
 from ocp_vscode import show_clear,show, show_all
+import uuid
 
-def construct():
+def construct() -> Part:
     length = 150
     dm_absaug = 35
     screw_hole_diameter = 4
@@ -59,15 +60,27 @@ def construct():
             .filter_by(Axis.Z, reverse=True)
         )    
         fillet(e, radius=2)
-        for f in e:
-            print(f)
-        # fillet(e, radius=2)
 
         # mirror the part to get full length
         mirror(about = Plane.YZ)
     show_all()
+    return part.part
+
+def export (part: Part):
+    exporter = Mesher()
+    exporter.add_shape(part, part_number="absaugadapter", uuid_value = uuid.uuid1())
+    exporter.add_meta_data(
+        name_space="custom",
+        name="Absaugadaptera",
+        value="Absaugadapter",
+        metadata_type="str",
+        must_preserve=False,
+    )
+    exporter.add_code_to_metadata()
+    exporter.write("absaugadapter.3mf")
 
 if __name__ == '__main__':
     show_clear()
-    construct()
+    part = construct()
+    export(part)
     
