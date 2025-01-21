@@ -5,7 +5,7 @@ import uuid
 
 def construct() -> Part:
     length = 150
-    dm_absaug = 35
+    dm_absaug = 36
     screw_hole_diameter = 4
     width = 50
     height = 50 
