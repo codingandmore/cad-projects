@@ -1,3 +1,10 @@
+# additonal ignores for CAD
+*.code-workspace
+*.stl 
+*.3mf
+untracked/
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
