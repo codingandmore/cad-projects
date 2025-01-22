@@ -2,7 +2,7 @@ from build123d import *
 from ocp_vscode import show_clear,show, show_all
 
 def construct() -> Part:
-    length = 80
+    length = 50 # minimum is 40 because of self intersection on mirror
     height = 50
     thickness = 5
     bar_width = 20
@@ -23,7 +23,7 @@ def construct() -> Part:
         front_face = rb.faces().sort_by(Axis.Y)[0]
         # cut out the slot
         with BuildSketch(front_face):
-            slot_lengh = length - 20
+            slot_lengh = length - 15
             SlotCenterToCenter(slot_lengh, slot_width)
         extrude(amount=-thickness, mode=Mode.SUBTRACT)
 
@@ -39,7 +39,7 @@ def construct() -> Part:
         with BuildSketch(Plane.YZ.offset(length/2)):
             with Locations((-thickness, lowest_z)):
                 Rectangle(guide_len, height, align=(Align.MIN, Align.MIN))
-        extrude(amount=-thickness)
+        extrude(amount=thickness)
 
         # mount for vise at bottom:
         with BuildSketch(front_face):
@@ -52,9 +52,8 @@ def construct() -> Part:
             CounterSinkHole(screw_diameter / 2 - 0.5, counter_sink_radius=screw_diameter)
 
         # guide for the knife
-
         with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
-            with Locations((guide_len / 2, bar_width / 2)):
+            with Locations((length / 2, bar_width / 2)):
                 Rectangle(rail_width, rail_height, align=(Align.MAX, Align.MAX))
         extrude(amount=-rail_len)
 
