@@ -14,6 +14,7 @@ def construct() -> Part:
     rail_len = 20
     rail_width = 10
     rail_height = 5
+    y_offset_rail = -20
 
     with BuildPart() as rb:
         # Slider Bar Front Side
@@ -53,7 +54,7 @@ def construct() -> Part:
             CounterSinkHole(screw_diameter / 2 - 0.5, counter_sink_radius=screw_diameter)
 
         # guide for the knife
-        with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
+        with BuildSketch(Plane.XZ.offset(y_offset_rail)):
             with Locations((length / 2, bar_width / 2)):
                 Rectangle(rail_width, rail_height, align=(Align.MAX, Align.MAX))
         extrude(amount=-rail_len)
@@ -82,7 +83,7 @@ def construct() -> Part:
         fillet(fe, radius=left_slider_length - thickness)
 
         # cut-out for rail
-        with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
+        with BuildSketch(Plane.XZ.offset(y_offset_rail)):
             with Locations((-length / 2, bar_width / 2 - tolerance)):
                 Rectangle(thickness, rail_height + 2 * tolerance, align=(Align.MAX, Align.MAX))
         extrude(amount=-(rail_len+tolerance), mode=Mode.SUBTRACT)
