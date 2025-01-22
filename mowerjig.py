@@ -1,3 +1,4 @@
+from typing import Iterable
 from build123d import *
 from ocp_vscode import show_clear,show, show_all
 
@@ -70,15 +71,15 @@ def construct() -> Part:
 
         # slider
         with BuildSketch(Plane.XZ.offset(thickness)):
-            with Locations((-length/2, -bar_width / 2 + tolerance)):
+            with Locations((-length / 2 - left_slider_length, -bar_width / 2 + tolerance)):
                 Rectangle(left_slider_length, height, align=(Align.MIN, Align.MIN))
-            with Locations((-length / 2 + slot_width, 0)):
+            with Locations((-length / 2 - slot_width - thickness, 0)):
                 Circle(slot_width / 2, mode=Mode.SUBTRACT)
         extrude(amount=thickness)
 
         # fillet
-        fe = lb.edges().filter_by(Axis.Y).group_by(Axis.Z)[-1].sort_by(Axis.X)[-1]
-        fillet(fe, radius=left_slider_length)
+        fe = lb.edges().filter_by(Axis.Y).group_by(Axis.Z)[-1].sort_by(Axis.X)[0]
+        fillet(fe, radius=left_slider_length - thickness)
 
         # cut-out for rail
         with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
@@ -87,13 +88,15 @@ def construct() -> Part:
         extrude(amount=-(rail_len+tolerance), mode=Mode.SUBTRACT)
 
     show_all()
-    return rb.part
+    return lb.part, rb.part
 
 
-def export (part: Part, name: str):
+def export (parts: Iterable[Part], name: str):
     exporter = Mesher()
 
-    exporter.add_shape(part, )
+    for part in parts:
+        exporter.add_shape(part)
+
     exporter.add_meta_data(
         name_space="custom",
         name="name",
@@ -106,5 +109,5 @@ def export (part: Part, name: str):
 
 if __name__ == '__main__':
     show_clear()
-    part = construct()
-    # export(part, "jig.stl")
+    parts = construct()
+    #export(parts, "jig.3mf")
