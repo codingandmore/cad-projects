@@ -9,6 +9,10 @@ def construct() -> Part:
     guide_len = 70
     slot_width = 5.5
     screw_diameter = 5
+    left_slider_length = 20
+    rail_len = 20
+    rail_width = 10
+    rail_height = 5
 
     with BuildPart() as rb:
         # Slider Bar Front Side
@@ -19,9 +23,8 @@ def construct() -> Part:
         front_face = rb.faces().sort_by(Axis.Y)[0]
         # cut out the slot
         with BuildSketch(front_face):
-            slot_lengh = length - 30
-            with Locations((-5, 0)):
-                SlotCenterToCenter(slot_lengh, slot_width)
+            slot_lengh = length - 20
+            SlotCenterToCenter(slot_lengh, slot_width)
         extrude(amount=-thickness, mode=Mode.SUBTRACT)
 
         # extend slider to lowest z
@@ -31,7 +34,8 @@ def construct() -> Part:
         extrude(amount=-thickness)
 
         # guide wall to the right
-        lowest_z = -bar_width / 2 - thickness
+        zero_z = -bar_width / 2
+        lowest_z = zero_z - thickness
         with BuildSketch(Plane.YZ.offset(length/2)):
             with Locations((-thickness, lowest_z)):
                 Rectangle(guide_len, height, align=(Align.MIN, Align.MIN))
@@ -47,29 +51,41 @@ def construct() -> Part:
         with Locations(ff):
             CounterSinkHole(screw_diameter / 2 - 0.5, counter_sink_radius=screw_diameter)
 
-        # construct the left side as a new part
+        # guide for the knife
 
+        with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
+            with Locations((guide_len / 2, bar_width / 2)):
+                Rectangle(rail_width, rail_height, align=(Align.MAX, Align.MAX))
+        extrude(amount=-rail_len)
+
+    # construct the left side as a new part
     with BuildPart() as lb:
         # left guide
+        tolerance = 0.2
         with BuildSketch(Plane.YZ.offset(-length/2)):
-            with Locations((-thickness * 2, lowest_z)):
+            with Locations((-thickness * 2, zero_z + tolerance)):
                 Rectangle(guide_len + thickness, height, align=(Align.MIN, Align.MIN))
-            tolerance = 0.2
             with Locations((-thickness, -bar_width / 2 - tolerance)):
                 Rectangle(thickness + 2 * tolerance, bar_width + 2 * tolerance, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
         extrude(amount=-thickness)
 
         # slider
-        slider_length = 20
         with BuildSketch(Plane.XZ.offset(thickness)):
-            with Locations((-length/2, -bar_width / 2 - thickness)):
-                Rectangle(slider_length, bar_width + thickness, align=(Align.MIN, Align.MIN))
-            with Locations((-length / 2 + slider_length / 2, 0)):
+            with Locations((-length/2, -bar_width / 2 + tolerance)):
+                Rectangle(left_slider_length, height, align=(Align.MIN, Align.MIN))
+            with Locations((-length / 2 + slot_width, 0)):
                 Circle(slot_width / 2, mode=Mode.SUBTRACT)
         extrude(amount=thickness)
 
-        # cut out slot for slider from right part
+        # fillet
+        fe = lb.edges().filter_by(Axis.Y).group_by(Axis.Z)[-1].sort_by(Axis.X)[-1]
+        fillet(fe, radius=left_slider_length)
 
+        # cut-out for rail
+        with BuildSketch(Plane.XZ.offset(-(guide_len - rail_len - thickness))):
+            with Locations((-length / 2, bar_width / 2 - tolerance)):
+                Rectangle(thickness, rail_height + 2 * tolerance, align=(Align.MAX, Align.MAX))
+        extrude(amount=-(rail_len+tolerance), mode=Mode.SUBTRACT)
 
     show_all()
     return rb.part
