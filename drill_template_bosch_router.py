@@ -2,7 +2,7 @@ from build123d import *
 from ocp_vscode import show_clear,show, show_all
 
 # length = 50
-width = 8
+width = 5
 thickness = 2
 angle = 0
 diameter_circle = 103
@@ -17,6 +17,12 @@ with BuildPart() as part:
     with BuildSketch() as sketch:
         Circle(diameter_circle / 2)
         Circle(diameter_circle / 2 - 4, mode=Mode.SUBTRACT)
+        # horizontal markers
+        sl = 3 # side length
+        with Locations((-diameter_circle / 2 , 0)):
+            Triangle(a=sl, A=60, B=60, rotation=30, mode=Mode.SUBTRACT)
+        with Locations((diameter_circle / 2 , 0)):
+            Triangle(a=sl, A=60, B=60, rotation=-30, mode=Mode.SUBTRACT)
         # height adjustment screw
         with Locations(Rot(Z=-28)): # perform a rotation coplanar with `Plane.XY
             length = height_adjustment_radius + slot_offset
