@@ -22,7 +22,7 @@ def construct() -> Part:
     angle = 30
 
     taper_absaug = degrees(atan((r_absaug_l - r_absaug_s) / len_absaug))
-    taper_haube = degrees(atan((r_haube_l - r_haube_s) / len_haube))
+    taper_haube = degrees(atan((r_haube_l - r_absaug_s) / len_haube))
     print(f'Taper Absaug: {taper_absaug}')
     print(f'Taper Haube: {taper_haube}')
 
@@ -32,26 +32,16 @@ def construct() -> Part:
             with BuildLine(Plane.XY):
                 start_point = (r_haube_l, - len_haube)
                 start_point_outer = (r_haube_l + wall_thicknes, -len_haube)
-
-                b_line = PolarLine(start_point, length=-len_haube, angle=-90 + taper_haube)
-                b_line_outer = PolarLine(start_point_outer, length=-len_haube, angle=-90 + taper_haube)
+                b_line = Line(start_point, (r_absaug_s, 0))
+                b_line_outer = Line(start_point_outer, (r_absaug_s + wall_thicknes, 0))
                 Line(b_line_outer @ 0, b_line @ 0)
                 Line(b_line_outer @ 1, b_line @ 1)
-            tube0 = make_face()
-        revolve(tube0, axis=Axis.Y)
+            make_face()
+        revolve(axis=Axis.Y)
 
-        # with BuildSketch(Plane.XZ):
-        #     Circle(dm_haube_l / 2 + wall_thicknes)
-        #     Circle(dm_haube_l / 2, mode=Mode.SUBTRACT)
-        # extrude(amount=len_haube)
-
-        # # Arc:
+        # Arc:
         p0 = (0, 0)
         l_arc = JernArc(p0, tangent=(0,1), radius=arc_r, arc_size=30)
-        end_face = part.faces().sort_by(Axis.Y)[-1]
-        # next two lines are to circumvent a bug. sweep runs in an endless
-        # loop if omitted.
-        extrude(end_face, amount=0.01)
         end_face = part.faces().sort_by(Axis.Y)[-1]
         sweep(end_face, path=l_arc)
 
@@ -82,5 +72,5 @@ def export (part: Part, name: str):
 if __name__ == '__main__':
     show_clear()
     part = construct()
-    # print(part)
+    print(part)
     export(part, "haubenadapter-30")
