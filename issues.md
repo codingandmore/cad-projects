@@ -120,3 +120,5 @@ https://www.reddit.com/r/build123d/comments/1gm3dlw/why_cant_i_locate_a_compound
         center-bounding-box: Vector(5, 25, 20)
 wp center-location: Location: (position=(5.00, 20.00, 15.00), orientation=(-0.00, 90.00, -90.00))
 wp center-location: Location: (position=(5.00, 20.00, 15.00), orientation=(-0.00, 90.00, -90.00))
+
+12) use sort_by() if result is one object, use group_by() if result are multiple obects
