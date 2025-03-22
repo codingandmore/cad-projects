@@ -8,7 +8,7 @@ from math import asin, atan, degrees, radians, sin, cos, radians, pi, sqrt
 with BuildPart() as part:
     knob_radius = 20
     knob_perimeter = knob_radius * pi * 2
-    offset_grip = 4
+    offset_grip = 6
     grip_radius = 10
     offset_grip2 = 3.0
     grip_radius2 = 4.2
@@ -22,25 +22,36 @@ with BuildPart() as part:
     print(f'Chord Length: {chord_len}')
     # calculate angle of this chord in knob
     angle_large = atan(chord_len / (2 * knob_radius)) * 2
-    print(f'large angle: {degrees(angle_large)}')
     perimeter_sum = knob_perimeter * (5 * angle_large / (2 * pi))
     perimeter_remain = knob_perimeter - perimeter_sum
     print(f'perimeter_remain: {perimeter_remain}, perimeter_sum: {perimeter_sum}, total: {knob_perimeter}')
     angle_small = perimeter_remain / knob_perimeter * 2 * pi / 5
-    print(f'small angle: {degrees(angle_small)}')
     chord_len_small = 2 * knob_radius * sin(angle_small / 2)
-    print(f'chord_len_small: {chord_len_small}')
     grip_radius2 = chord_len_small / 2
+    angle_large = degrees(angle_large)
+    angle_small = degrees(angle_small)
+    print(f'large angle: {angle_large}')
+    print(f'small angle: {angle_small}')
+    print(f'chord_len_small: {chord_len_small}')
     with BuildSketch(Plane.XY):
-        # use the following helper lines for checking correct dimensions:
-        # l1 = PolarLine((0,0), knob_radius + 5, degrees(angle_large) / 2)
-        # l0 = Line((knob_radius,0), (knob_radius,chord_len / 2 ))
-        # l2 = PolarLine((0,0), knob_radius + 5, - degrees(angle_large) / 2)
         c0 = Circle(knob_radius)
-        with PolarLocations(knob_radius, count=5, start_angle=36):
-            c2 = Circle(radius=grip_radius2, mode=Mode.ADD)
         with PolarLocations(knob_radius + offset_grip, count=5):
             c1 = Circle(radius=grip_radius, mode=Mode.SUBTRACT)
+        start_angle=angle_large / 2
+        increment_angle = angle_large + angle_small
+        for i in range(5):
+            angle1 = i * increment_angle + start_angle
+            angle2 = i * increment_angle + start_angle + angle_small
+            print(f'angle1: {angle1}')
+            print(f'angle2: {angle2}')
+            l1 = PolarLine((0,0), knob_radius, angle1)
+            l2 = PolarLine((0,0), knob_radius, angle2)
+            start1 = l1 @ 1
+            start2 = l2 @ 1
+            with BuildLine(Plane.XY):
+                TangentArc([start1, start2], tangent=start1)
+                RadiusArc(start2, start1, knob_radius)
+            aface = make_face()
     extrude(amount=grip_height)
 
     # filleting the top edge:
