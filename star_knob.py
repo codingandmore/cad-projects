@@ -3,10 +3,11 @@ from ocp_vscode import show_clear,show, show_all, Camera
 from math import asin, acos, atan, degrees, sin, cos, tan, radians, radians, pi, sqrt
 
 knob_radius = 20
-knob_perimeter = knob_radius * pi * 2
-offset_grip = 6
+offset_grip = 7
 grip_radius = 10
 grip_height = 8
+
+knob_perimeter = knob_radius * pi * 2
 alfa = 36 # 360 / 10
 dist_m1_m2 = knob_radius + offset_grip
 # angle_large is the angle from center m0 of the grip circle intersecting
@@ -63,4 +64,16 @@ with BuildPart() as part:
     # filleting the top edge:
     top_edges = part.edges().filter_by(Plane.XY).group_by(Axis.Z)[-1]#[:1]
     fillet(top_edges, 3)
+
+    # rounding the top
+    with BuildSketch(Plane.YZ):
+        top_point = (0, grip_height)
+        with BuildLine(Plane.YZ):
+            ra = JernArc(top_point, (-1,0), radius=7 * (knob_radius + offset_grip), arc_size=10)
+            outer = ra @ 1
+            Line(outer, (outer.Y, grip_height))
+            Line((outer.Y, grip_height), top_point)
+        cc = make_face()
+    revolve(cc, axis=Axis.Z, revolution_arc=360, mode=Mode.SUBTRACT)
+
 show_all(reset_camera=Camera.KEEP)
