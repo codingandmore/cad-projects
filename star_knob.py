@@ -12,6 +12,7 @@ grip_height = 9
 m8_shaft_radius = 8.3 / 2
 m8_hex_radius = 13 / 2
 m8_thickness = 5.6
+inlay_radius = knob_radius * 0.6
 
 knob_perimeter = knob_radius * pi * 2
 alfa = 36 # 360 / 10
@@ -74,13 +75,14 @@ def construct_knob() -> Part:
         # rounding the top
         with BuildSketch(Plane.YZ):
             top_point = (0, grip_height)
-            with BuildLine(Plane.YZ):
-                ra = JernArc(top_point, (-1,0), radius=7 * (knob_radius + offset_grip), arc_size=10)
+            with BuildLine(Plane.XY):
+                ra = JernArc(top_point, (1,0), radius=6 * (knob_radius + offset_grip), arc_size=-10)
+                # ra = Line(top_point, (knob_radius + offset_grip, grip_height-3))
                 outer = ra @ 1
-                Line(outer, (outer.Y, grip_height))
-                Line((outer.Y, grip_height), top_point)
+                Line(outer, (outer.X, grip_height))
+                Line((outer.X, grip_height), top_point)
             cc = make_face()
-        revolve(cc, axis=Axis.Z, revolution_arc=360, mode=Mode.SUBTRACT)
+        revolve(axis=Axis.Z, revolution_arc=360, mode=Mode.SUBTRACT)
 
         # filleting the top edge:
         top_edges = part.edges().filter_by(Axis.Z, reverse=True).filter_by(Plane.XY, reverse=True)
@@ -88,7 +90,7 @@ def construct_knob() -> Part:
 
         # create a cutout at the bottom
         with BuildSketch(Plane.XY):
-            pentagon = RegularPolygon(knob_radius / 2, 5, rotation=angle_small)
+            pentagon = RegularPolygon(inlay_radius, 5, rotation=angle_small)
         extrude(amount=pentagon_cutout_thickness, mode=Mode.SUBTRACT, taper=pentagon_taper)
 
     show_all(reset_camera=Camera.KEEP)
@@ -98,7 +100,7 @@ def construct_inlay() -> Part:
     # create inner part
     with BuildPart() as part2:
         with BuildSketch(Plane.XY):
-            RegularPolygon(knob_radius / 2, 5, rotation=angle_small)
+            RegularPolygon(inlay_radius, 5, rotation=angle_small)
         extrude(amount=pentagon_cutout_thickness, taper=pentagon_taper)
         top_face = part2.faces().filter_by(Plane.XY).sort_by(Axis.Z)[-1]
         with BuildSketch(top_face):
@@ -128,6 +130,8 @@ def export (parts: Iterable[Part], name: str):
 if __name__ == '__main__':
     show_clear()
     part1 = construct_knob()
+    part1.label = "knob"
     part2 = construct_inlay()
+    part2.label = "inlay"
     show(part1, part2)
     export([part1, part2], "knob.3mf")
