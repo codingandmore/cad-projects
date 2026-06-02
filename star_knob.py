@@ -3,17 +3,17 @@ from ocp_vscode import show_clear,show, show_all, Camera
 from math import asin, acos, atan, degrees, sin, cos, tan, radians, radians, pi, sqrt
 from typing import Iterable
 
-knob_radius = 20
-offset_grip = 7
-grip_radius = 10
+knob_radius = 15
+offset_grip = 5
+grip_radius = 7
 grip_height = 9
 
 # for size M8:
 m8_shaft_radius = 8.3 / 2
 m8_hex_radius = 13 / 2
 m8_thickness = 5.6
-inlay_radius = knob_radius * 0.6
 
+inlay_radius = knob_radius * 0.75
 knob_perimeter = knob_radius * pi * 2
 alfa = 36 # 360 / 10
 dist_m1_m2 = knob_radius + offset_grip
@@ -54,7 +54,7 @@ def construct_knob() -> Part:
     # tan2 = PolarLine(p2, 50, angle= 90 - degrees(acos((p2[0] - m2[0]) / grip_radius)))
     # tan1 = PolarLine(p1, length=50, angle=90 - degrees(acos((m1[0] - p1[0]) / grip_radius)))
     # calculate the center of the smaller circle that has tangent to m1 and m2
-    m3 = hl1.intersect(hl2)
+    m3 = hl1.intersect(hl2)[0]
     # get the angle of p to m0:
     angle_m3 = degrees(atan(m3.Y / m3.X))
     dist_m0_m3 = m3.distance_to(m0)
@@ -76,7 +76,7 @@ def construct_knob() -> Part:
         with BuildSketch(Plane.YZ):
             top_point = (0, grip_height)
             with BuildLine(Plane.XY):
-                ra = JernArc(top_point, (1,0), radius=6 * (knob_radius + offset_grip), arc_size=-10)
+                ra = JernArc(top_point, (1,0), radius=5.5 * (knob_radius + offset_grip), arc_size=-10)
                 # ra = Line(top_point, (knob_radius + offset_grip, grip_height-3))
                 outer = ra @ 1
                 Line(outer, (outer.X, grip_height))
@@ -133,5 +133,5 @@ if __name__ == '__main__':
     part1.label = "knob"
     part2 = construct_inlay()
     part2.label = "inlay"
-    show(part1, part2)
-    export([part1, part2], "knob.3mf")
+    show(part1, part2, reset_camera=Camera.KEEP)
+    # export([part1, part2], "knob.3mf")
