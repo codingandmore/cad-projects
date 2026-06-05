@@ -45,14 +45,19 @@ def create_hook_90():
         extrude(amount=peg_d*2, mode=Mode.SUBTRACT)
     return part
 
-def create_snap_hook():
+def create_snap_hook_internal(with_support: bool=True, for_subtract: bool=False):
     mid_point_y = wall_height / 2
+
     with BuildPart() as partBuilder:
         with BuildSketch(Plane.XZ):
-            with Locations((0, mid_point_y)):
-                Rectangle(0.2, 2, align=(Align.MIN, Align.MIN))
-            with Locations((0, mid_point_y + 2)):
-                Rectangle(5, 2, align=(Align.MIN, Align.MIN))
+            if (for_subtract):
+                with Locations((0, mid_point_y)):
+                    Rectangle(5, 4, align=(Align.MIN, Align.MIN))
+            else:
+                with Locations((0, mid_point_y)):
+                    Rectangle(0.2, 2, align=(Align.MIN, Align.MIN))
+                with Locations((0, mid_point_y + 2)):
+                    Rectangle(5, 2, align=(Align.MIN, Align.MIN))
             triangle_len = 1.1
             triangle_mid = 2.5
             triangle_top = (2.5, mid_point_y + 4 + triangle_len)
@@ -64,13 +69,18 @@ def create_snap_hook():
                 Line(triangle_bottom_left, triangle_bottom_right)
             make_face()
         half_hook = extrude(amount=wall_thickness - 2)
-        half_hook.edges().filter_by(Axis.Y).sort_by(Axis.Z)[-1]
-        half_hook = fillet(half_hook.edges().filter_by(Axis.Y).sort_by(Axis.Z)[-1], 1.0)
-        half_hook = fillet(half_hook.faces().filter_by(Axis.X).sort_by(Axis.X)[-1].edges(), 0.5)        # add support bar
-        with BuildSketch(Plane.XZ):
-            with Locations((4, mid_point_y)):
-                Rectangle(1, 4, align=(Align.MIN, Align.MIN))
-        extrude(amount=-1)
+        if (for_subtract):
+            offset(amount=0.3)
+        else:
+            half_hook.edges().filter_by(Axis.Y).sort_by(Axis.Z)[-1]
+            half_hook = fillet(half_hook.edges().filter_by(Axis.Y).sort_by(Axis.Z)[-1], 1.0)
+            half_hook = fillet(half_hook.faces().filter_by(Axis.X).sort_by(Axis.X)[-1].edges(), 0.5)
+            # add support bar
+            if (with_support):
+                with BuildSketch(Plane.XZ):
+                    with Locations((4, mid_point_y)):
+                        Rectangle(1, 4, align=(Align.MIN, Align.MIN))
+                extrude(amount=-1)
 
     half_hook = partBuilder.part
     mirror_plane = Plane.XY.offset(mid_point_y)
@@ -81,10 +91,14 @@ def create_snap_hook():
 
     return partBuilder.part
 
-def create_snap_groove(from_snap_hook: Part):
-    with BuildPart() as outer_hook:
-        offset(from_snap_hook.part, amount=0.3)
-    return outer_hook.part
+def create_snap_hook(with_support: bool=True):
+    return  create_snap_hook_internal(False)
+
+def create_snap_groove():
+    mid_point_y = wall_height / 2
+    snap_hook = create_snap_hook_internal(False, True)
+    RigidJoint(label="groovejt", to_part=snap_hook, joint_location=Location((0, -(wall_thickness-2)/2, mid_point_y)))
+    return snap_hook
 
 def create_wall(x_units: int, y_units: int, len_units: int):
     # main part:
@@ -94,20 +108,28 @@ def create_wall(x_units: int, y_units: int, len_units: int):
             with Locations(loc):
                 Rectangle(skadis_slot_w, len_units * slot_spacing, align=(Align.CENTER, Align.MIN))
         extrude(amount=wall_height)
+        # create joints at start and to attach extensions
         joint_loc = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[-1].center_location
-        print(joint_loc)
         joint_loc.orientation = (0, 0, 90)
-        print(joint_loc)
         RigidJoint(label="wallendjt", joint_location=joint_loc)
+        joint_loc = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0].center_location
+        joint_loc.orientation = (0, 0, 270)
+        RigidJoint(label="wallstartjt", joint_location=joint_loc)
     wall = builder.part
 
     # start extension:
+    # create groove at start
+    snap_groove = create_snap_groove()
+    wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
+
+    # create bar
     loc = (loc[0], loc[1]-5)
     with BuildPart() as builder:
         with BuildSketch(Plane.XY):
             with Locations(loc):
                 Rectangle(5, 5, align=(Align.CENTER, Align.MIN))
         extrude(amount=wall_height)
+        add(snap_groove, mode=Mode.SUBTRACT)
     start_block = builder.part
 
     # end extension:
@@ -118,7 +140,8 @@ def create_wall(x_units: int, y_units: int, len_units: int):
     #             Rectangle(5, 5, align=(Align.CENTER, Align.MIN))
     #     extrude(amount=wall_height)
 
-    # create hook as end
+
+    # create hook at end
     snap_hook = create_snap_hook()
     wall.joints["wallendjt"].connect_to(snap_hook.joints["hookjt"])
     wall_assembly = Compound(label="wall", children=[wall, start_block, snap_hook])
@@ -146,10 +169,10 @@ if __name__ == '__main__':
     # hook.label = "hook"
     # hook90 = create_hook_90()
     # hook90.label = "hook90"
-    # snap_hook = create_snap_hook()
+    # snap_hook = create_snap_hook(False)
     # snap_hook.label = "SnapHook"
-    # outer_hook = create_snap_groove(snap_hook)
-    # outer_hook.label = "SnapHookGroove"
+    # snap_groove = create_snap_groove()
+    # snap_groove.label = "SnapHookGroove"
     wall = create_wall(2, 3, 5)
     wall.label = "wall-1"
     # sb.label = "sb"
@@ -158,7 +181,7 @@ if __name__ == '__main__':
         # hook,
         # hook90,
         # snap_hook,
-        # outer_hook,
+        # snap_groove,
         wall,
         # sb,
         # eb,
