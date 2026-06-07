@@ -9,7 +9,7 @@ skadis_slot_h = 15
 skadis_slot_w = 5
 clearance = 0.3
 wall_height = 30
-wall_thickness = skadis_slot_w
+wall_thickness = skadis_slot_w # do not change!
 slot_spacing = 20
 double_slot_spacing = 2 * slot_spacing
 hook_offset_row = slot_spacing - skadis_slot_w + clearance / 2 # initial offset for hook to align with next wall
@@ -21,29 +21,36 @@ peg_d = skadis_slot_w - clearance_depth
 skadis_slot_d = 5
 
 
-def create_hook():
-    with BuildPart() as part:
-        with BuildSketch(Plane.XY):
-             SlotOverall(peg_h / 2, peg_w, 0, (Align.MIN, Align.CENTER))
-        extrude(amount=peg_d)
-        with BuildSketch(Plane.XY.offset(peg_d)):
-            SlotOverall(peg_h, peg_w, 0, (Align.CENTER, Align.CENTER))
-        extrude(amount=peg_d)
-    return part
-
-def create_hook_90():
-    with BuildPart() as part:
+def create_hook(cut_to_thickness: bool=False):
+    with BuildPart() as partBuilder:
         with BuildSketch(Plane.XY):
              SlotOverall(peg_h / 2, peg_w, -90, (Align.MIN, Align.CENTER))
-        extrude(amount=peg_d)
-        with BuildSketch(Plane.XY.offset(peg_d)):
+        extrude(amount=-peg_d)
+        with BuildSketch(Plane.XY.offset(-peg_d)):
             SlotOverall(peg_h, peg_w, -90, (Align.CENTER, Align.CENTER))
-        extrude(amount=peg_d)
+        extrude(amount=-peg_d)
+        if cut_to_thickness:
+            with BuildSketch(Plane.XY):
+                with Locations((0, -skadis_slot_w)):
+                    Rectangle(peg_w, peg_w, align=(Align.CENTER, Align.MAX))
+            extrude(amount=-peg_d*2, mode=Mode.SUBTRACT)
+        joint_loc = Location((0,0,0))
+        RigidJoint(label="foot-jt", joint_location=joint_loc)
+    return partBuilder.part
+
+def create_hook_90():
+    with BuildPart() as partBuilder:
+        with BuildSketch(Plane.XY):
+             SlotOverall(peg_h / 2, peg_w, 0, (Align.MIN, Align.CENTER))
+        extrude(amount=-peg_d)
+        with BuildSketch(Plane.XY.offset(-peg_d)):
+            SlotOverall(peg_h, peg_w, 0, (Align.CENTER, Align.CENTER))
+        extrude(amount=-peg_d)
         with BuildSketch(Plane.XY):
             with Locations((0, skadis_slot_h - skadis_slot_w)):
                 Rectangle(peg_w, peg_w, align=(Align.CENTER, Align.MAX))
-        extrude(amount=peg_d*2, mode=Mode.SUBTRACT)
-    return part
+        extrude(amount=-peg_d*2, mode=Mode.SUBTRACT)
+    return partBuilder.part
 
 def create_snap_hook_internal(with_support: bool=True, for_subtract: bool=False):
     mid_point_y = wall_height / 2
@@ -52,15 +59,15 @@ def create_snap_hook_internal(with_support: bool=True, for_subtract: bool=False)
         with BuildSketch(Plane.XZ):
             if (for_subtract):
                 with Locations((0, mid_point_y)):
-                    Rectangle(5, 4, align=(Align.MIN, Align.MIN))
+                    Rectangle(wall_thickness, 4, align=(Align.MIN, Align.MIN))
             else:
                 with Locations((0, mid_point_y)):
                     Rectangle(0.2, 2, align=(Align.MIN, Align.MIN))
                 with Locations((0, mid_point_y + 2)):
-                    Rectangle(5, 2, align=(Align.MIN, Align.MIN))
+                    Rectangle(wall_thickness, 2, align=(Align.MIN, Align.MIN))
             triangle_len = 1.1
-            triangle_mid = 2.5
-            triangle_top = (2.5, mid_point_y + 4 + triangle_len)
+            triangle_mid = wall_thickness / 2
+            triangle_top = (triangle_mid, mid_point_y + 4 + triangle_len)
             triangle_bottom_left = (triangle_mid - triangle_len, mid_point_y + 4)
             triangle_bottom_right = (triangle_mid + triangle_len, mid_point_y + 4)
             with BuildLine():
@@ -115,6 +122,10 @@ def create_wall(x_units: int, y_units: int, len_units: int):
         joint_loc = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0].center_location
         joint_loc.orientation = (0, 0, 270)
         RigidJoint(label="wallstartjt", joint_location=joint_loc)
+        joint_loc = faces().filter_by(Plane.XY).sort_by(Axis.Z)[0].center_location
+        joint_loc.position -= (0, (len_units * slot_spacing / 2), 0)
+        joint_loc.orientation = (0, 0, 0)
+        RigidJoint(label="wallfootjt", joint_location=joint_loc)
     wall = builder.part
 
     # start extension:
@@ -123,11 +134,11 @@ def create_wall(x_units: int, y_units: int, len_units: int):
     wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
 
     # create bar
-    loc = (loc[0], loc[1]-5)
+    loc = (loc[0], loc[1] - wall_thickness)
     with BuildPart() as builder:
         with BuildSketch(Plane.XY):
             with Locations(loc):
-                Rectangle(5, 5, align=(Align.CENTER, Align.MIN))
+                Rectangle(wall_thickness, wall_thickness, align=(Align.CENTER, Align.MIN))
         extrude(amount=wall_height)
         add(snap_groove, mode=Mode.SUBTRACT)
     start_block = builder.part
@@ -137,14 +148,29 @@ def create_wall(x_units: int, y_units: int, len_units: int):
     # with BuildPart() as builder:
     #     with BuildSketch(Plane.XY):
     #         with Locations(loc):
-    #             Rectangle(5, 5, align=(Align.CENTER, Align.MIN))
+    #             Rectangle(wall_thickness, wall_thickness, align=(Align.CENTER, Align.MIN))
     #     extrude(amount=wall_height)
 
 
     # create hook at end
     snap_hook = create_snap_hook()
     wall.joints["wallendjt"].connect_to(snap_hook.joints["hookjt"])
-    wall_assembly = Compound(label="wall", children=[wall, start_block, snap_hook])
+
+    # create feet:
+    foot = create_hook()
+    wall.joints["wallfootjt"].connect_to(foot.joints["foot-jt"])
+    # with GridLocations(x_spacing=1, y_spacing=slot_spacing, x_count=1, y_count=len_units):
+    #     foot = copy.copy(foot)
+    # locs = GridLocations(x_spacing=1, y_spacing=slot_spacing * 2, x_count=1, y_count=int(len_units / 2))# .local_locations
+    wall_elems = [wall, start_block, snap_hook, foot]
+    print(foot.position)
+    for p in range (1,  int(len_units / 2) + 1):
+        l = Location((0, p * slot_spacing * 2, 0))
+        f = foot.moved(l)
+        wall_elems += f
+    print(len(wall_elems))
+    wall_assembly = Compound(label="wall", children=wall_elems)
+    # attach feet
     return wall_assembly
 
 def export (parts: Iterable[Part], name: str):
