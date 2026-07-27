@@ -18,11 +18,11 @@ def create_board(x_units: int, y_units: int) -> Part:
             half_x = int(x_units / 2)
             half_y = int(y_units / 2)
             with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
-                               x_count=half_x, y_count=half_x, align=(Align.MIN, Align.MIN)):
+                               x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
                 SlotOverall(skadis_slot_len, skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
             with Locations((20, 20)):
                 with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
-                                   x_count=half_x, y_count=half_x, align=(Align.MIN, Align.MIN)):
+                                   x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
                     SlotOverall(skadis_slot_len, skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
 
         extrude(amount=-board_thickness)

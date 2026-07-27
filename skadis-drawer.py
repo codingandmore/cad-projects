@@ -2,7 +2,7 @@
 import copy
 from build123d import *
 from ocp_vscode import show_clear,show, show_all, Camera
-from math import asin, acos, atan, degrees, sin, cos, tan, radians, radians, pi, sqrt
+from math import asin, acos, atan, ceil, degrees, sin, cos, tan, radians, radians, pi, sqrt
 from typing import Iterable
 from enum import Enum
 
@@ -34,11 +34,11 @@ def create_board(x_units: int, y_units: int) -> Part:
             half_x = int(x_units / 2)
             half_y = int(y_units / 2)
             with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
-                               x_count=half_x, y_count=half_x, align=(Align.MIN, Align.MIN)):
+                               x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
                 SlotOverall(skadis_slot_len, skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
             with Locations((20, 20)):
                 with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
-                                   x_count=half_x, y_count=half_x, align=(Align.MIN, Align.MIN)):
+                                   x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
                     SlotOverall(skadis_slot_len, skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
 
         extrude(amount=-board_thickness)
@@ -57,22 +57,6 @@ def create_hook(cut_to_thickness: bool=False)-> Part:
                 with Locations((skadis_slot_w, 0)):
                     Rectangle(peg_w, peg_w, align=(Align.MIN, Align.CENTER))
             extrude(amount=-peg_d*2, mode=Mode.SUBTRACT)
-        joint_loc = Location((0,0,0))
-        RigidJoint(label="foot-jt", joint_location=joint_loc)
-    return partBuilder.part
-
-def create_hook_90():
-    with BuildPart() as partBuilder:
-        with BuildSketch(Plane.XY):
-             SlotOverall(peg_h / 2, peg_w, 0, (Align.MIN, Align.CENTER))
-        extrude(amount=-peg_d)
-        with BuildSketch(Plane.XY.offset(-peg_d)):
-            SlotOverall(peg_h, peg_w, 0, (Align.CENTER, Align.CENTER))
-        extrude(amount=-peg_d)
-        with BuildSketch(Plane.XY):
-            with Locations((0, skadis_slot_len - skadis_slot_w)):
-                Rectangle(peg_w, peg_w, align=(Align.CENTER, Align.MAX))
-        extrude(amount=-peg_d*2, mode=Mode.SUBTRACT)
         joint_loc = Location((0,0,0))
         RigidJoint(label="foot-jt", joint_location=joint_loc)
     return partBuilder.part
@@ -119,80 +103,114 @@ def create_snap_hook_internal(with_support: bool=True, for_subtract: bool=False)
     with BuildPart() as partBuilder:
         add(half_hook)
         mirror(half_hook, mirror_plane)
-        RigidJoint(label="hookjt", joint_location=Location((0, -(wall_thickness-2)/2, mid_point_y)))
 
     return partBuilder.part
 
-def create_snap_hook(with_support: bool=True):
-    return  create_snap_hook_internal(False)
+def create_snap_hook(with_support: bool=True) -> Part:
+    hook = create_snap_hook_internal(False)
+    RigidJoint(label="hookjt", to_part=hook, joint_location=Location((0, -(wall_thickness-2)/2, wall_height / 2)))
+    return hook
 
 def create_snap_groove():
-    mid_point_y = wall_height / 2
     snap_hook = create_snap_hook_internal(False, True)
-    RigidJoint(label="groovejt", to_part=snap_hook, joint_location=Location((0, -(wall_thickness-2)/2, mid_point_y)))
+    face = snap_hook.faces().filter_by(Axis.X).sort_by(Axis.X)[0]
+    joint_loc = Location(face.center_location.position, 180)
+    RigidJoint(label="groovejt", to_part=snap_hook, joint_location=joint_loc)
     return snap_hook
 
-def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orientation):
+def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool):
+    # groove
+    snap_groove = create_snap_groove()
+
+    # depending on if we are on an even or odd row the first slot is offseted
+    feet_offset = 0
+    if x_units & 1 != y_units & 1:
+        feet_offset = slot_spacing
+    remaining_wall_len = len_units * slot_spacing - feet_offset
+    no_feet = ceil(remaining_wall_len / (slot_spacing * 2))
+    # print(f'{no_feet=}, {len_units=}, {feet_offset=}, {remaining_wall_len=}')
+
     # main part:
     loc = (x_units * slot_spacing, y_units * slot_spacing)
     with BuildPart() as builder:
         with BuildSketch(Plane.XY):
             with Locations(loc):
                 if orientation is Orientation.vertical:
-                    Rectangle(skadis_slot_w, len_units * slot_spacing, align=(Align.CENTER, Align.MIN))
+                    Rectangle(skadis_slot_w, len_units * slot_spacing, align=(Align.MIN, Align.MIN))
                 else:
-                    Rectangle(len_units * slot_spacing, skadis_slot_w, align=(Align.MIN, Align.CENTER))
+                    Rectangle(len_units * slot_spacing, skadis_slot_w, align=(Align.MIN, Align.MIN))
         extrude(amount=wall_height)
 
         joint_loc_feet = faces().filter_by(Plane.XY).sort_by(Axis.Z)[0].center_location
-        if orientation is Orientation.vertical:
-            joint_loc_start = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[-1].center_location
-            joint_loc_end = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0].center_location
-            joint_loc_feet.position -= (0, (len_units * slot_spacing / 2), 0)
-            joint_loc_end.orientation = (0, 0, 270)
-            joint_loc_start.orientation = (0, 0, 90)
-        else:
-            joint_loc_start = faces().filter_by(Plane.YZ).sort_by(Axis.X)[-1].center_location
-            joint_loc_end = faces().filter_by(Plane.YZ).sort_by(Axis.X)[0].center_location
-            joint_loc_feet.position -= ((len_units * slot_spacing / 2), - skadis_slot_w / 2, 0)
-            joint_loc_start.orientation = (0, 0, 0)
-            joint_loc_end.orientation = (0, 0, 180)
-
         joint_loc_feet.orientation = (0, 0, 0)
-        RigidJoint(label="wallstartjt", joint_location=joint_loc_end)
-        RigidJoint(label="wallendjt", joint_location=joint_loc_start)
+        if orientation is Orientation.vertical:
+            joint_loc_end = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[-1].center_location
+            joint_loc_start = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0].center_location
+            saved_loc = copy.copy(joint_loc_start)
+            joint_loc_feet.position -= (skadis_slot_w / 2, (len_units * slot_spacing / 2) - skadis_slot_w / 2 - feet_offset, 0)
+            if left_groove:
+                joint_loc_start.position += (-skadis_slot_w / 2, skadis_slot_w / 2, 0)
+                joint_loc_start.orientation = (0, 0, 180)
+            else:
+                joint_loc_start.orientation = (0, 0, 270)
+            joint_loc_end.orientation = (0, 0, 90)
+            saved_loc.position += (-skadis_slot_w / 2, skadis_slot_w / 2 + double_slot_spacing, 0)
+            saved_loc.orientation = (0, 0, 180)
+        else:
+            joint_loc_end = faces().filter_by(Plane.YZ).sort_by(Axis.X)[-1].center_location
+            joint_loc_start = faces().filter_by(Plane.YZ).sort_by(Axis.X)[0].center_location
+            saved_loc = copy.copy(joint_loc_start)
+            joint_loc_feet.position -= (len_units * slot_spacing / 2 - feet_offset, 0, 0)
+            joint_loc_end.orientation = (0, 0, 0)
+            saved_loc.position += (skadis_slot_w / 2 + double_slot_spacing, skadis_slot_w / 2, 0)
+            saved_loc.orientation = (0, 0, 90)
+            if left_groove:
+                joint_loc_start.position += (skadis_slot_w / 2, skadis_slot_w / 2, 0)
+                joint_loc_start.orientation = (0, 0, 90)
+            else:
+                joint_loc_start.orientation = (0, 0, 180)
+
+        RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
+        RigidJoint(label="wallendjt", joint_location=joint_loc_end)
         RigidJoint(label="wallfootjt", joint_location=joint_loc_feet)
+        RigidJoint(label="wallmidjt", joint_location=saved_loc)
     wall = builder.part
 
     # start extension:
     # create groove at start
-    snap_groove = create_snap_groove()
+
     wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
 
-    # create bar
-    if orientation is Orientation.vertical:
-        loc = (loc[0], loc[1] - wall_thickness)
-    else:
-        loc = (loc[0] - wall_thickness / 2, loc[1] - wall_thickness / 2)
-
     with BuildPart() as builder:
-        with BuildSketch(Plane.XY):
-            with Locations(loc):
-                Rectangle(wall_thickness, wall_thickness, align=(Align.CENTER, Align.MIN))
-        extrude(amount=wall_height)
+        add(wall)
         add(snap_groove, mode=Mode.SUBTRACT)
-    start_block = builder.part
+        RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
+        RigidJoint(label="wallendjt", joint_location=joint_loc_end)
+        RigidJoint(label="wallfootjt", joint_location=joint_loc_feet)
+        RigidJoint(label="wallmidjt", joint_location=saved_loc)
+        # add all other grooves along the wall
+        if left_groove:
+            count = no_feet
+            snap_groove2 = snap_groove
+        else:
+            # create and connect a second groove
+            snap_groove2 = create_snap_groove()
+            wall.joints["wallmidjt"].connect_to(snap_groove2.joints["groovejt"])
+            count = no_feet - 1
 
-    # end extension:
-    # loc = (loc[0], loc[1] + len_units * slot_spacing)
-    # with BuildPart() as builder:
-    #     with BuildSketch(Plane.XY):
-    #         with Locations(loc):
-    #             Rectangle(wall_thickness, wall_thickness, align=(Align.CENTER, Align.MIN))
-    #     extrude(amount=wall_height)
+        if orientation is Orientation.vertical:
+            xc = 1
+            yc = count
+        else:
+            xc = count
+            yc = 1
 
+        with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
+                x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
+            add(snap_groove2, mode=Mode.SUBTRACT)
+    wall = builder.part
 
-    # create hook at end
+     # create hook at end
     snap_hook = create_snap_hook()
     wall.joints["wallendjt"].connect_to(snap_hook.joints["hookjt"])
 
@@ -200,16 +218,15 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
     foot = create_hook(cut_to_thickness=True if orientation is Orientation.vertical else False)
 
     wall.joints["wallfootjt"].connect_to(foot.joints["foot-jt"])
-    # with GridLocations(x_spacing=1, y_spacing=slot_spacing, x_count=1, y_count=len_units):
-    #     foot = copy.copy(foot)
-    # locs = GridLocations(x_spacing=1, y_spacing=slot_spacing * 2, x_count=1, y_count=int(len_units / 2))# .local_locations
-    wall_elems = [wall, start_block, snap_hook, foot]
-    print(foot.position)
-    for p in range (1,  int(len_units / 2) + 1):
+    wall_elems = [wall, snap_hook, foot]
+
+    for p in range (1,  no_feet):
+        pos = p * slot_spacing * 2
+        print(f'{pos=}')
         if orientation is Orientation.vertical:
-            l = Location((0, p * slot_spacing * 2, 0))
+            l = Location((0, pos, 0))
         else:
-            l = Location((p * slot_spacing * 2, 0, 0))
+            l = Location((pos, 0, 0))
         f = foot.moved(l)
         wall_elems += f
 
@@ -234,10 +251,8 @@ def export (parts: Iterable[Part], name: str):
 # %%
 if __name__ == '__main__':
     show_clear()
-    # hook = create_hook(True)
+    # hook = create_hook(False)
     # hook.label = "hook"
-    # hook90 = create_hook_90()
-    # hook90.label = "hook90"
     # snap_hook = create_snap_hook(False)
     # snap_hook.label = "SnapHook"
     # snap_groove = create_snap_groove()
@@ -245,16 +260,15 @@ if __name__ == '__main__':
     board = create_board(12, 8)
     board.label = "Board"
     name = "wall-v"
-    wallv = create_wall(2, 3, 5, Orientation.vertical)
+    wallv = create_wall(2, 2, 5, Orientation.vertical, False)
     wallv.label = name
-    wallh = create_wall(2, 1, 4, Orientation.horizontal)
+    wallh = create_wall(4, 2, 4, Orientation.horizontal, False)
     name = "wall-h"
     wallh.label = name
     # sb.label = "sb"
     # eb.label = "eb"
     show_objects = (
         # hook,
-        # hook90,
         # snap_hook,
         # snap_groove,
         board,
