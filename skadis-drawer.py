@@ -119,9 +119,6 @@ def create_snap_groove():
     return snap_hook
 
 def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool):
-    # groove
-    snap_groove = create_snap_groove()
-
     # depending on if we are on an even or odd row the first slot is offseted
     feet_offset = 0
     if x_units & 1 != y_units & 1:
@@ -171,18 +168,15 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
                 joint_loc_start.orientation = (0, 0, 180)
 
         RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
-        RigidJoint(label="wallendjt", joint_location=joint_loc_end)
-        RigidJoint(label="wallfootjt", joint_location=joint_loc_feet)
-        RigidJoint(label="wallmidjt", joint_location=saved_loc)
     wall = builder.part
 
     # create groove at start
+    snap_groove = create_snap_groove()
     wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
 
     with BuildPart() as builder:
         add(wall)
         add(snap_groove, mode=Mode.SUBTRACT)
-        RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
         RigidJoint(label="wallendjt", joint_location=joint_loc_end)
         RigidJoint(label="wallfootjt", joint_location=joint_loc_feet)
         RigidJoint(label="wallmidjt", joint_location=saved_loc)
@@ -191,9 +185,9 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
             count = len_units
             snap_groove2 = snap_groove
         else:
-            # create and connect a second groove
+            # create and connect a second groove rotated 90° to first one
             snap_groove2 = create_snap_groove()
-            wall.joints["wallmidjt"].connect_to(snap_groove2.joints["groovejt"])
+            builder.joints["wallmidjt"].connect_to(snap_groove2.joints["groovejt"])
             count = len_units - 1
 
         if orientation is Orientation.vertical:
@@ -214,13 +208,11 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
 
     # create feet:
     foot = create_hook(cut_to_thickness=True if orientation is Orientation.vertical else False)
-
     wall.joints["wallfootjt"].connect_to(foot.joints["foot-jt"])
     wall_elems = [wall, snap_hook, foot]
 
     for p in range (1,  no_feet):
         pos = p * slot_spacing * 2
-        print(f'{pos=}')
         if orientation is Orientation.vertical:
             l = Location((0, pos, 0))
         else:
@@ -260,7 +252,7 @@ if __name__ == '__main__':
     name = "wall-v"
     wallv = create_wall(1, 2, 5, Orientation.vertical, True)
     wallv.label = name
-    wallh = create_wall(2, 4, 4, Orientation.horizontal, False)
+    wallh = create_wall(3, 4, 4, Orientation.horizontal, False)
     name = "wall-h"
     wallh.label = name
     # sb.label = "sb"
