@@ -26,11 +26,11 @@ class Orientation(Enum):
     horizontal = 1
     vertical = 2
 
-def create_board(x_units: int, y_units: int) -> Part:
+def create_board(x_units: int, y_units: int, border_x: int=0, border_y: int=0) -> Part:
     with BuildPart() as partBuilder:
         with BuildSketch(Plane.XY):
-            Rectangle(x_units * slot_spacing, y_units * slot_spacing, align=(Align.MIN, Align.MIN))
-            # with Locations((0, 0)):
+            with Locations((-border_x, -border_y, 0)):
+                Rectangle(x_units * slot_spacing + 2 * border_x, y_units * slot_spacing + 2 * border_y, align=(Align.MIN, Align.MIN))
             half_x = int(x_units / 2)
             half_y = int(y_units / 2)
             with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
@@ -176,9 +176,7 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
         RigidJoint(label="wallmidjt", joint_location=saved_loc)
     wall = builder.part
 
-    # start extension:
     # create groove at start
-
     wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
 
     with BuildPart() as builder:
@@ -257,12 +255,12 @@ if __name__ == '__main__':
     # snap_hook.label = "SnapHook"
     # snap_groove = create_snap_groove()
     # snap_groove.label = "SnapHookGroove"
-    board = create_board(12, 8)
+    board = create_board(12, 8, border_x=10, border_y=10)
     board.label = "Board"
     name = "wall-v"
     wallv = create_wall(1, 2, 5, Orientation.vertical, True)
     wallv.label = name
-    wallh = create_wall(3, 4, 4, Orientation.horizontal, True)
+    wallh = create_wall(2, 4, 4, Orientation.horizontal, False)
     name = "wall-h"
     wallh.label = name
     # sb.label = "sb"
