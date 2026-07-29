@@ -154,7 +154,7 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
             else:
                 joint_loc_start.orientation = (0, 0, 270)
             joint_loc_end.orientation = (0, 0, 90)
-            saved_loc.position += (-skadis_slot_w / 2, skadis_slot_w / 2 + double_slot_spacing, 0)
+            saved_loc.position += (-skadis_slot_w / 2, skadis_slot_w / 2 + slot_spacing, 0)
             saved_loc.orientation = (0, 0, 180)
         else:
             joint_loc_end = faces().filter_by(Plane.YZ).sort_by(Axis.X)[-1].center_location
@@ -162,7 +162,7 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
             saved_loc = copy.copy(joint_loc_start)
             joint_loc_feet.position -= (len_units * slot_spacing / 2 - feet_offset, 0, 0)
             joint_loc_end.orientation = (0, 0, 0)
-            saved_loc.position += (skadis_slot_w / 2 + double_slot_spacing, skadis_slot_w / 2, 0)
+            saved_loc.position += (skadis_slot_w / 2 + slot_spacing, skadis_slot_w / 2, 0)
             saved_loc.orientation = (0, 0, 90)
             if left_groove:
                 joint_loc_start.position += (skadis_slot_w / 2, skadis_slot_w / 2, 0)
@@ -190,13 +190,13 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
         RigidJoint(label="wallmidjt", joint_location=saved_loc)
         # add all other grooves along the wall
         if left_groove:
-            count = no_feet
+            count = len_units
             snap_groove2 = snap_groove
         else:
             # create and connect a second groove
             snap_groove2 = create_snap_groove()
             wall.joints["wallmidjt"].connect_to(snap_groove2.joints["groovejt"])
-            count = no_feet - 1
+            count = len_units - 1
 
         if orientation is Orientation.vertical:
             xc = 1
@@ -205,7 +205,7 @@ def create_wall(x_units: int, y_units: int, len_units: int, orientation: Orienta
             xc = count
             yc = 1
 
-        with GridLocations(x_spacing=double_slot_spacing, y_spacing=double_slot_spacing,
+        with GridLocations(x_spacing=slot_spacing, y_spacing=slot_spacing,
                 x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
             add(snap_groove2, mode=Mode.SUBTRACT)
     wall = builder.part
@@ -260,9 +260,9 @@ if __name__ == '__main__':
     board = create_board(12, 8)
     board.label = "Board"
     name = "wall-v"
-    wallv = create_wall(2, 2, 5, Orientation.vertical, False)
+    wallv = create_wall(1, 2, 5, Orientation.vertical, True)
     wallv.label = name
-    wallh = create_wall(4, 2, 4, Orientation.horizontal, False)
+    wallh = create_wall(3, 4, 4, Orientation.horizontal, True)
     name = "wall-h"
     wallh.label = name
     # sb.label = "sb"
