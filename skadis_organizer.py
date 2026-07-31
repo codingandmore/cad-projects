@@ -26,17 +26,19 @@ class SkadisOrganizer:
     def __init__(self, wall_height:int= 30):
         self. wall_height = wall_height
 
-    def create_board(self, x_units: int, y_units: int, border_x: int=0, border_y: int=0) -> Part:
+    def create_board(self, x_units: int, y_units: int, border_x: int=0, border_y: int=0, start_indented: bool=False) -> Part:
         with BuildPart() as partBuilder:
             with BuildSketch(Plane.XY):
                 with Locations((-border_x, -border_y, 0)):
                     Rectangle(x_units * self.slot_spacing + 2 * border_x, y_units * self.slot_spacing + 2 * border_y, align=(Align.MIN, Align.MIN))
                 half_x = int(x_units / 2)
                 half_y = int(y_units / 2)
-                with GridLocations(x_spacing=self.double_slot_spacing, y_spacing=self.double_slot_spacing,
+                x1_off, x2_off = (self.slot_spacing, 0) if start_indented else (0, self.slot_spacing)
+                with Locations((x1_off, 0)):
+                    with GridLocations(x_spacing=self.double_slot_spacing, y_spacing=self.double_slot_spacing,
                                 x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
-                    SlotOverall(self.skadis_slot_len, self.skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
-                with Locations((20, 20)):
+                        SlotOverall(self.skadis_slot_len, self.skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
+                with Locations((x2_off, self.slot_spacing)):
                     with GridLocations(x_spacing=self.double_slot_spacing, y_spacing=self.double_slot_spacing,
                                     x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
                         SlotOverall(self.skadis_slot_len, self.skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
@@ -44,19 +46,19 @@ class SkadisOrganizer:
             extrude(amount=-self.board_thickness)
         return partBuilder.part
 
-    def create_wall(self, x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool) -> Compound:
+    def create_wall(self, x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool=False) -> Compound:
         # depending on if we are on an even or odd row the first slot is offseted
         feet_offset = 0
         if x_units & 1 != y_units & 1:
             feet_offset = self.slot_spacing
         return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, False)
 
-    def create_adapter(self, x_units: int, y_units: int) -> Compound:
+    def create_adapter(self, x_units: int, y_units: int, len_units: int=1) -> Compound:
         if x_units & 1 != y_units & 1:
-            feet_offset = self.slot_spacing
+            feet_offset = self.slot_spacing if len_units > 1 else -1 # no feet
         else:
-            feet_offset = -1 # no feet
-        return self._create_wall_intern(x_units, y_units, 2, self.Orientation.HORIZONTAL, False, feet_offset, True)
+            feet_offset = self.slot_spacing * 2 if len_units > 2 else -1 # no feet
+        return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, True)
 
     # internal functions
     def _create_hook(self, cut_to_thickness: bool=False)-> Part:
@@ -255,9 +257,10 @@ class SkadisOrganizer:
                 xc = count
                 yc = 1
 
-            with GridLocations(x_spacing=self.slot_spacing, y_spacing=self.slot_spacing,
-                    x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
-                add(snap_groove2, mode=Mode.SUBTRACT)
+            if count > 0:
+                with GridLocations(x_spacing=self.slot_spacing, y_spacing=self.slot_spacing,
+                        x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
+                    add(snap_groove2, mode=Mode.SUBTRACT)
         return builder.part
 
     def _create_feet(self, orientation: Orientation, no_feet: int, wall: Part) -> list[Part]:
