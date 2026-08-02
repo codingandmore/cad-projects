@@ -21,19 +21,20 @@ class SkadisOrganizer:
     peg_w = skadis_slot_w - clearance
     peg_d = skadis_slot_w - clearance_depth
     board_thickness = 5
+    first_row_indented = True
 
-
-    def __init__(self, wall_height:int= 30):
+    def __init__(self, wall_height:int= 30, first_row_indented: bool=True):
         self. wall_height = wall_height
+        self.first_row_indented = first_row_indented
 
-    def create_board(self, x_units: int, y_units: int, border_x: int=0, border_y: int=0, start_indented: bool=False) -> Part:
+    def create_board(self, x_units: int, y_units: int, border_x: int=0, border_y: int=0, name: str = None) -> Part:
         with BuildPart() as partBuilder:
             with BuildSketch(Plane.XY):
                 with Locations((-border_x, -border_y, 0)):
                     Rectangle(x_units * self.slot_spacing + 2 * border_x, y_units * self.slot_spacing + 2 * border_y, align=(Align.MIN, Align.MIN))
                 half_x = int(x_units / 2)
                 half_y = int(y_units / 2)
-                x1_off, x2_off = (self.slot_spacing, 0) if start_indented else (0, self.slot_spacing)
+                x1_off, x2_off = (self.slot_spacing, 0) if self.first_row_indented else (0, self.slot_spacing)
                 with Locations((x1_off, 0)):
                     with GridLocations(x_spacing=self.double_slot_spacing, y_spacing=self.double_slot_spacing,
                                 x_count=half_x, y_count=half_y, align=(Align.MIN, Align.MIN)):
@@ -44,23 +45,33 @@ class SkadisOrganizer:
                         SlotOverall(self.skadis_slot_len, self.skadis_slot_w, align=(Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
 
             extrude(amount=-self.board_thickness)
-        return partBuilder.part
+        board = partBuilder.part
+        if name:
+            board.label = name
+        return board
 
     def create_wall(self, x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool=False, name: str = None) -> Compound:
         # depending on if we are on an even or odd row the first slot is offseted
         feet_offset = 0
-        if x_units & 1 != y_units & 1:
+        if self._row_is_indented(x_units, y_units):
             feet_offset = self.slot_spacing
         return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, False, name)
 
     def create_adapter(self, x_units: int, y_units: int, len_units: int=1, name: str = None) -> Compound:
-        if x_units & 1 != y_units & 1:
+        if self._row_is_indented(x_units, y_units):
             feet_offset = self.slot_spacing if len_units > 1 else -1 # no feet
         else:
             feet_offset = self.slot_spacing * 2 if len_units > 2 else -1 # no feet
         return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, True, name)
 
     # internal functions
+    def _row_is_indented(self, x_units: int, y_units: int):
+        indented_normal = x_units & 1 != y_units & 1
+        if self.first_row_indented:
+            return not indented_normal
+        else:
+            return indented_normal
+
     def _create_hook(self, cut_to_thickness: bool=False)-> Part:
         with BuildPart() as partBuilder:
             with BuildSketch(Plane.XY):
@@ -167,7 +178,11 @@ class SkadisOrganizer:
             remaining_wall_len = len_units * self.slot_spacing - feet_offset
             no_feet = ceil(remaining_wall_len / (self.slot_spacing * 2))
             wall_elems += self._create_feet(orientation, no_feet, wall)
-        return Compound(children=wall_elems)
+        assembly = Compound(children=wall_elems)
+        if name:
+            assembly.label = name
+        return assembly
+
 
     def _create_wall_with_groove_intern(
             self,
@@ -278,9 +293,7 @@ class SkadisOrganizer:
                 with GridLocations(x_spacing=self.slot_spacing, y_spacing=self.slot_spacing,
                         x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
                     add(snap_groove2, mode=Mode.SUBTRACT)
-        wall = builder.part
-        wall.label = name
-        return wall
+        return builder.part
 
     def _create_feet(self, orientation: Orientation, no_feet: int, wall: Part) -> list[Part]:
         foot = self._create_hook(cut_to_thickness=True if orientation is self.Orientation.VERTICAL else False)

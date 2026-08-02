@@ -29,13 +29,10 @@ if __name__ == '__main__':
     # snap_hook.label = "SnapHook"
     # snap_groove = create_snap_groove()
     # snap_groove.label = "SnapHookGroove"
-    org = SkadisOrganizer(wall_height=30)
-    board = org.create_board(12, 8, border_x=10, border_y=10, start_indented=False)
-    board.label = "Board"
-    name = "wall-v"
-    wallv = org.create_wall(1, 2, 5, SkadisOrganizer.Orientation.VERTICAL, True, name)
-    name = "wall-h"
-    wallh = org.create_wall(3, 4, 4, SkadisOrganizer.Orientation.HORIZONTAL, False, name)
+    org = SkadisOrganizer(wall_height=30, first_row_indented=False)
+    board = org.create_board(12, 8, border_x=10, border_y=10, name="Board")
+    wallv = org.create_wall(1, 2, 5, SkadisOrganizer.Orientation.VERTICAL, True, "wall-v")
+    wallh = org.create_wall(3, 4, 4, SkadisOrganizer.Orientation.HORIZONTAL, False, "wall-h")
     adapter = org.create_adapter(1, 4, 2, "A1")
     # wallh1 = org.create_wall(3, 1, 1, SkadisOrganizer.Orientation.HORIZONTAL)
     # wallh1.label = "H1"
