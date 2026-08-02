@@ -46,19 +46,19 @@ class SkadisOrganizer:
             extrude(amount=-self.board_thickness)
         return partBuilder.part
 
-    def create_wall(self, x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool=False) -> Compound:
+    def create_wall(self, x_units: int, y_units: int, len_units: int, orientation: Orientation, left_groove: bool=False, name: str = None) -> Compound:
         # depending on if we are on an even or odd row the first slot is offseted
         feet_offset = 0
         if x_units & 1 != y_units & 1:
             feet_offset = self.slot_spacing
-        return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, False)
+        return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, False, name)
 
-    def create_adapter(self, x_units: int, y_units: int, len_units: int=1) -> Compound:
+    def create_adapter(self, x_units: int, y_units: int, len_units: int=1, name: str = None) -> Compound:
         if x_units & 1 != y_units & 1:
             feet_offset = self.slot_spacing if len_units > 1 else -1 # no feet
         else:
             feet_offset = self.slot_spacing * 2 if len_units > 2 else -1 # no feet
-        return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, True)
+        return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, True, name)
 
     # internal functions
     def _create_hook(self, cut_to_thickness: bool=False)-> Part:
@@ -143,11 +143,12 @@ class SkadisOrganizer:
             orientation: Orientation,
             left_groove: bool,
             feet_offset: int,
-            is_adapter: bool = False
+            is_adapter: bool = False,
+            name: str = None,
         ) -> Compound:
 
         # main part:
-        wall = self._create_wall_with_groove_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, is_adapter)
+        wall = self._create_wall_with_groove_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, is_adapter, name)
 
         # create hook at end
         snap_hook = self._create_snap_hook()
@@ -177,6 +178,7 @@ class SkadisOrganizer:
             left_groove: bool,
             feet_offset: int,
             is_adapter: bool = False,
+            name: str = None,
         ) -> Part:
         x0 = x_units * self.slot_spacing
         if is_adapter:
@@ -186,13 +188,13 @@ class SkadisOrganizer:
         with BuildPart() as builder:
             with BuildSketch(Plane.XY):
                 with Locations(loc):
+                    len_rect = len_units * self.slot_spacing
                     if orientation is self.Orientation.VERTICAL:
-                        Rectangle(self.skadis_slot_w, len_units * self.slot_spacing, align=(Align.MIN, Align.MIN))
+                        Rectangle(self.skadis_slot_w, len_rect, align=(Align.MIN, Align.MIN))
                     else:
-                        len_x = len_units * self.slot_spacing
                         if is_adapter:
-                            len_x -= self.wall_thickness
-                        Rectangle(len_x, self.skadis_slot_w, align=(Align.MIN, Align.MIN))
+                            len_rect -= self.wall_thickness
+                        Rectangle(len_rect, self.skadis_slot_w, align=(Align.MIN, Align.MIN))
             extrude(amount=self.wall_height)
 
             joint_loc_feet = faces().filter_by(Plane.XY).sort_by(Axis.Z)[0].center_location
@@ -210,6 +212,10 @@ class SkadisOrganizer:
                 joint_loc_end.orientation = (0, 0, 90)
                 joint_loc_mid.position += (-self.skadis_slot_w / 2, self.skadis_slot_w / 2 + self.slot_spacing, 0)
                 joint_loc_mid.orientation = (0, 0, 180)
+                text_face = faces().filter_by(Plane.YZ).sort_by(Axis.X)[0]
+                text_orig = text_face.center() + (0, text_face.length / 2, text_face.width / 2)
+                text_x_dir=(0, -1, 0)
+                text_z_dir=(-1, 0, 0)
             else:
                 joint_loc_end = faces().filter_by(Plane.YZ).sort_by(Axis.X)[-1].center_location
                 joint_loc_start = faces().filter_by(Plane.YZ).sort_by(Axis.X)[0].center_location
@@ -223,8 +229,19 @@ class SkadisOrganizer:
                     joint_loc_start.orientation = (0, 0, 90)
                 else:
                     joint_loc_start.orientation = (0, 0, 180)
-
+                text_face = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0]
+                text_orig = text_face.center() + (-text_face.length / 2, 0, text_face.width / 2)
+                text_x_dir=(1, 0, 0)
+                text_z_dir=(0, -1, 0)
             RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
+
+            # add text
+            if name:
+                text_plane = Plane(origin=text_orig, x_dir=text_x_dir, z_dir=text_z_dir)
+                with BuildSketch(text_plane):
+                    with Locations((3,-3)):
+                        Text(name, font_size=5, align=(Align.MIN, Align.MAX))
+                extrude(amount=+0.6, mode=Mode.ADD)
         wall = builder.part
 
         # create groove at start
@@ -261,7 +278,9 @@ class SkadisOrganizer:
                 with GridLocations(x_spacing=self.slot_spacing, y_spacing=self.slot_spacing,
                         x_count=xc, y_count=yc, align=(Align.MIN, Align.MIN)):
                     add(snap_groove2, mode=Mode.SUBTRACT)
-        return builder.part
+        wall = builder.part
+        wall.label = name
+        return wall
 
     def _create_feet(self, orientation: Orientation, no_feet: int, wall: Part) -> list[Part]:
         foot = self._create_hook(cut_to_thickness=True if orientation is self.Orientation.VERTICAL else False)
