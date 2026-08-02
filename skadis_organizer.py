@@ -27,9 +27,10 @@ class SkadisOrganizer:
     board_thickness = 5
     first_row_indented = True
 
-    def __init__(self, wall_height:int= 30, first_row_indented: bool=True):
+    def __init__(self, wall_height:int= 30, first_row_indented: bool=True, with_support: bool=False):
         self. wall_height = wall_height
         self.first_row_indented = first_row_indented
+        self.with_support = with_support
 
     def create_board(self, x_units: int, y_units: int, border_x: int=0, border_y: int=0, name: str = None) -> Part:
         with BuildPart() as partBuilder:
@@ -94,7 +95,7 @@ class SkadisOrganizer:
             RigidJoint(label="foot-jt", joint_location=joint_loc)
         return partBuilder.part
 
-    def _create_snap_hook_internal(self, with_support: bool=True, for_subtract: bool=False):
+    def _create_snap_hook_internal(self, for_subtract: bool=False):
         mid_point_y = self.wall_height / 2
 
         with BuildPart() as partBuilder:
@@ -125,7 +126,7 @@ class SkadisOrganizer:
                 half_hook = fillet(half_hook.edges().filter_by(Axis.Y).sort_by(Axis.Z)[-1], 1.0)
                 half_hook = fillet(half_hook.faces().filter_by(Axis.X).sort_by(Axis.X)[-1].edges(), 0.5)
                 # add support bar
-                if (with_support):
+                if (self.with_support):
                     with BuildSketch(Plane.XZ):
                         with Locations((4, mid_point_y)):
                             Rectangle(1, 4, align=(Align.MIN, Align.MIN))
@@ -139,13 +140,13 @@ class SkadisOrganizer:
 
         return partBuilder.part
 
-    def _create_snap_hook(self, with_support: bool=True) -> Part:
+    def _create_snap_hook(self) -> Part:
         hook = self._create_snap_hook_internal(False)
         RigidJoint(label="hookjt", to_part=hook, joint_location=Location((0, -(self.wall_thickness-2)/2,self. wall_height / 2)))
         return hook
 
     def _create_snap_groove(self):
-        snap_hook = self._create_snap_hook_internal(False, True)
+        snap_hook = self._create_snap_hook_internal(True)
         face = snap_hook.faces().filter_by(Axis.X).sort_by(Axis.X)[0]
         joint_loc = Location(face.center_location.position, 180)
         RigidJoint(label="groovejt", to_part=snap_hook, joint_location=joint_loc)
@@ -234,7 +235,7 @@ class SkadisOrganizer:
                     joint_loc_start.orientation = (0, 0, 180)
                 else:
                     joint_loc_start.orientation = (0, 0, 270)
-                joint_loc_end.orientation = (0, 0, 90)
+                joint_loc_end.orientation = (0, 180, 90)
                 joint_loc_mid.position += (-self.skadis_slot_w / 2, self.skadis_slot_w / 2 + self.slot_spacing, 0)
                 joint_loc_mid.orientation = (0, 0, 180)
                 text_face = faces().filter_by(Plane.YZ).sort_by(Axis.X)[0]
@@ -253,7 +254,7 @@ class SkadisOrganizer:
                     joint_loc_start.position += (self.skadis_slot_w / 2, self.skadis_slot_w / 2, 0)
                     joint_loc_start.orientation = (0, 0, 90)
                 else:
-                    joint_loc_start.orientation = (0, 0, 180)
+                    joint_loc_start.orientation = (180, 0, 180)
                 text_face = faces().filter_by(Plane.XZ).sort_by(Axis.Y)[0]
                 text_orig = text_face.center() + (-text_face.length / 2, 0, text_face.width / 2)
                 text_x_dir=(1, 0, 0)
@@ -265,9 +266,9 @@ class SkadisOrganizer:
             if name:
                 text_plane = Plane(origin=text_orig, x_dir=text_x_dir, z_dir=text_z_dir)
                 with BuildSketch(text_plane):
-                    with Locations((3,-3)):
+                    with Locations((7,-3)):
                         Text(name, font_size=5, align=(Align.MIN, Align.MAX))
-                extrude(amount=+0.6, mode=Mode.ADD)
+                extrude(amount=-0.6, mode=Mode.SUBTRACT)
         wall = builder.part
 
         # create groove at start
