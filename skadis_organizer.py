@@ -8,6 +8,10 @@ class SkadisOrganizer:
         HORIZONTAL = 1
         VERTICAL = 2
 
+    class AdapterType(Enum):
+        NONE = 1
+        LEFT_HOOK = 2
+        RIGHT_GROOVE = 3
 
     # constants, do not change:
     slot_spacing = 20
@@ -55,14 +59,15 @@ class SkadisOrganizer:
         feet_offset = 0
         if self._row_is_indented(x_units, y_units):
             feet_offset = self.slot_spacing
-        return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, False, name)
+        return self._create_wall_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, self.AdapterType.NONE, name)
 
-    def create_adapter(self, x_units: int, y_units: int, len_units: int=1, name: str = None) -> Compound:
+
+    def create_adapter(self,  adapter_type: AdapterType, x_units: int, y_units: int, len_units: int=1, name: str = None) -> Compound:
         if self._row_is_indented(x_units, y_units):
             feet_offset = self.slot_spacing if len_units > 1 else -1 # no feet
         else:
             feet_offset = self.slot_spacing * 2 if len_units > 2 else -1 # no feet
-        return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, True, name)
+        return self._create_wall_intern(x_units, y_units, len_units, self.Orientation.HORIZONTAL, False, feet_offset, adapter_type, name)
 
     # internal functions
     def _row_is_indented(self, x_units: int, y_units: int):
@@ -154,21 +159,23 @@ class SkadisOrganizer:
             orientation: Orientation,
             left_groove: bool,
             feet_offset: int,
-            is_adapter: bool = False,
+            adapter_type: AdapterType = AdapterType.NONE,
             name: str = None,
         ) -> Compound:
 
         # main part:
-        wall = self._create_wall_with_groove_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, is_adapter, name)
+        wall = self._create_wall_with_groove_intern(x_units, y_units, len_units, orientation, left_groove, feet_offset, adapter_type, name)
+        wall_elems = [wall]
 
-        # create hook at end
-        snap_hook = self._create_snap_hook()
-        wall.joints["wallendjt"].connect_to(snap_hook.joints["hookjt"])
+        if adapter_type is not self.AdapterType.RIGHT_GROOVE:
+            # create hook at end
+            snap_hook = self._create_snap_hook()
+            wall.joints["wallendjt"].connect_to(snap_hook.joints["hookjt"])
+            wall_elems += snap_hook
 
 
         # print(f'{no_feet=}, {len_units=}, {feet_offset=}, {remaining_wall_len=}')
-        wall_elems = [wall, snap_hook]
-        if is_adapter:
+        if adapter_type is self.AdapterType.LEFT_HOOK:
             snap_hook2 = self._create_snap_hook()
             wall.joints["wallstartjt"].connect_to(snap_hook2.joints["hookjt"])
             wall_elems += snap_hook2
@@ -192,23 +199,26 @@ class SkadisOrganizer:
             orientation: Orientation,
             left_groove: bool,
             feet_offset: int,
-            is_adapter: bool = False,
+            adapter_type: AdapterType = AdapterType.NONE,
             name: str = None,
         ) -> Part:
         x0 = x_units * self.slot_spacing
-        if is_adapter:
+        len_rect = len_units * self.slot_spacing
+
+        if adapter_type is self.AdapterType.LEFT_HOOK:
             x0 += self.wall_thickness
+            len_rect -= self.wall_thickness
+        elif adapter_type is self.AdapterType.RIGHT_GROOVE:
+            len_rect += self.wall_thickness
+
         loc = (x0, y_units * self.slot_spacing)
 
         with BuildPart() as builder:
             with BuildSketch(Plane.XY):
                 with Locations(loc):
-                    len_rect = len_units * self.slot_spacing
                     if orientation is self.Orientation.VERTICAL:
                         Rectangle(self.skadis_slot_w, len_rect, align=(Align.MIN, Align.MIN))
                     else:
-                        if is_adapter:
-                            len_rect -= self.wall_thickness
                         Rectangle(len_rect, self.skadis_slot_w, align=(Align.MIN, Align.MIN))
             extrude(amount=self.wall_height)
 
@@ -249,6 +259,7 @@ class SkadisOrganizer:
                 text_x_dir=(1, 0, 0)
                 text_z_dir=(0, -1, 0)
             RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
+            RigidJoint(label="wallendjt", joint_location=joint_loc_end)
 
             # add text
             if name:
@@ -260,14 +271,15 @@ class SkadisOrganizer:
         wall = builder.part
 
         # create groove at start
-        if not is_adapter:
+        if adapter_type is not self.AdapterType.LEFT_HOOK:
             snap_groove = self._create_snap_groove()
             wall.joints["wallstartjt"].connect_to(snap_groove.joints["groovejt"])
 
         with BuildPart() as builder:
             add(wall)
-            if not is_adapter:
+            if adapter_type is not self.AdapterType.LEFT_HOOK:
                 add(snap_groove, mode=Mode.SUBTRACT)
+
             RigidJoint(label="wallstartjt", joint_location=joint_loc_start)
             RigidJoint(label="wallendjt", joint_location=joint_loc_end)
             RigidJoint(label="wallfootjt", joint_location=joint_loc_feet)
@@ -281,6 +293,9 @@ class SkadisOrganizer:
                 snap_groove2 = self._create_snap_groove()
                 builder.joints["wallmidjt"].connect_to(snap_groove2.joints["groovejt"])
                 count = len_units - 1
+
+            if adapter_type is self.AdapterType.RIGHT_GROOVE:
+                count += 1
 
             if orientation is self.Orientation.VERTICAL:
                 xc = 1
